@@ -1,5 +1,50 @@
-# TODO: 4 services: db + 3 node instances
-# Each node needs:
-# - NODE_ID env var (1, 2, 3)
-# - Different port mapping (8081, 8082, 8083)
-# - PEERS env var listing other nodes (e.g., "http://node-2:8080,http://node-3:8080")
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nodes
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nodes"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  node-1:
+    build: .
+    ports:
+      - "8081:8080"
+    environment:
+      NODE_ID: "1"
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/nodes
+      PEERS: http://node-2:8080,http://node-3:8080
+    depends_on:
+      db:
+        condition: service_healthy
+
+  node-2:
+    build: .
+    ports:
+      - "8082:8080"
+    environment:
+      NODE_ID: "2"
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/nodes
+      PEERS: http://node-1:8080,http://node-3:8080
+    depends_on:
+      db:
+        condition: service_healthy
+
+  node-3:
+    build: .
+    ports:
+      - "8083:8080"
+    environment:
+      NODE_ID: "3"
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/nodes
+      PEERS: http://node-1:8080,http://node-2:8080
+    depends_on:
+      db:
+        condition: service_healthy
